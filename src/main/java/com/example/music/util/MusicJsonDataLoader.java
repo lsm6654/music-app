@@ -20,7 +20,9 @@ import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
@@ -133,10 +135,12 @@ public class MusicJsonDataLoader {
 
     String albumName = (String) data.get("Album");
     String releaseDate = (String) data.get("Release Date");
+    LocalDate parsedDate = parseReleaseDate(releaseDate);
     Album album = Album.builder()
       .id(albumIdCounter.getAndIncrement())
       .albumName(albumName)
-      .releaseDate(parseReleaseDate(releaseDate))
+      .releaseDate(parsedDate)
+      .releaseYear(parsedDate != null ? (short) parsedDate.getYear() : null)
       .createdAt(LocalDateTime.now())
       .updatedAt(LocalDateTime.now())
       .build();

@@ -1,15 +1,16 @@
 package com.example.music.application.service;
 
-import com.example.music.util.MusicJsonDataLoader;
-import com.example.music.domain.entity.AlbumArtistMapping;
 import com.example.music.domain.entity.Album;
+import com.example.music.domain.entity.AlbumArtistMapping;
 import com.example.music.domain.entity.Artist;
 import com.example.music.domain.entity.Song;
 import com.example.music.domain.factory.MusicEntityFactory;
+import com.example.music.domain.repository.AlbumAnnualAggregationRepository;
 import com.example.music.infrastructure.r2dbc.repository.AlbumArtistMappingRepository;
 import com.example.music.infrastructure.r2dbc.repository.AlbumRepository;
 import com.example.music.infrastructure.r2dbc.repository.ArtistRepository;
 import com.example.music.infrastructure.r2dbc.repository.SongRepository;
+import com.example.music.util.MusicJsonDataLoader;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -31,6 +32,7 @@ public class DataInitializationService {
   private final AlbumRepository albumRepository;
   private final SongRepository songRepository;
   private final AlbumArtistMappingRepository albumArtistMappingRepository;
+  private final AlbumAnnualAggregationRepository albumAnnualAggregationRepository;
 
   // ID 매핑위한 Map
   private final Map<String, Long> artistIdMap = new ConcurrentHashMap<>();
@@ -49,6 +51,21 @@ public class DataInitializationService {
     } catch (Exception e) {
       log.error("Data initialization failed.", e);
       throw new RuntimeException("Failed to initialize data.", e);
+    }
+  }
+
+  public void loadAggregationData() {
+    try {
+      log.info("Starting aggregation data initialization...");
+
+      aggregateAlbumData()
+        .doOnTerminate(() -> log.info("Aggregation data initialization completed."))
+        .doOnError(error -> log.error("Aggregation data initialization failed.", error))
+        .block();  // 블로킹 호출로 집계 완료 대기
+
+    } catch (Exception e) {
+      log.error("Failed to initialize aggregation data.", e);
+      throw new RuntimeException("Failed to initialize aggregation data.", e);
     }
   }
 
@@ -154,6 +171,21 @@ public class DataInitializationService {
           });
       }, CONCURRENT_SAVES)
       .then();
+  }
+
+  private Mono<Void> aggregateAlbumData() {
+    log.info("Starting album annual aggregation...");
+
+    return albumAnnualAggregationRepository.count()
+      .flatMap(count -> {
+        if (count > 0) {
+          log.info("Album annual aggregation data already exists. Skipping aggregation.");
+          return Mono.empty();
+        }
+        return albumAnnualAggregationRepository.aggregateAlbumsByYearAndArtist()
+          .doOnSuccess(unused -> log.info("Album annual aggregation completed"))
+          .doOnError(error -> log.error("Failed to aggregate album data", error));
+      });
   }
 
 }
