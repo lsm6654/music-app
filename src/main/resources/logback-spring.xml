@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appender name="Console" class="ch.qos.logback.core.ConsoleAppender">
+        <immediateFlush>true</immediateFlush>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} | %-5level | %-35logger{0}:%-4L | [%thread] %msg%n%rEx{full, org, sun, javax, mysql}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+    <logger name="com.example.music" level="INFO"/>
+    <root level="INFO">
+        <appender-ref ref="Console"/>
+    </root>
+</configuration>

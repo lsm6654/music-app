@@ -1,0 +1,16 @@
+spring:
+  r2dbc:
+    url: r2dbc:h2:file:///./data/testdb;
+    username: sa
+    password:
+    initialization-mode: always
+  
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:query/ddl-h2.sql
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console

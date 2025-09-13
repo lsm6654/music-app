@@ -35,12 +35,12 @@ CREATE TABLE songs
 (
     id               BIGINT PRIMARY KEY AUTO_INCREMENT,
     album_id         BIGINT       NOT NULL,
-    song_title       VARCHAR(255) NOT NULL,
-    danceability     DECIMAL(4, 3),
-    energy           DECIMAL(4, 3),
-    positiveness     DECIMAL(4, 3),
-    liveness         DECIMAL(4, 3),
-    instrumentalness DECIMAL(6, 5),
+    song_title       VARCHAR(255),
+    danceability     DECIMAL(8, 4),
+    energy           DECIMAL(8, 4),
+    positiveness     DECIMAL(8, 4),
+    liveness         DECIMAL(8, 4),
+    instrumentalness DECIMAL(10, 5),
     popularity       TINYINT,
     KEY              idx_album (album_id)
 );

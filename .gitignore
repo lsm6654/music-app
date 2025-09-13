@@ -11,3 +11,9 @@ generated/
 .project
 .classpath
 .settings/
+
+# Database
+data/
+*.db
+*.mv.db
+*.trace.db
