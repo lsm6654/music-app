@@ -8,16 +8,15 @@ spring:
     init:
       mode: always
       schema-locations: classpath:query/ddl-h2.sql
-
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
+      
+logging:
+  level:
+    com.example.music: DEBUG
+    org.springframework.r2dbc: DEBUG
+    io.r2dbc.h2: DEBUG
 
 springdoc:
   swagger-ui:
-    enabled: true
-    path: /swagger-ui.html
+    enabled: false
   api-docs:
-    enabled: true
-    path: /v3/api-docs
+    enabled: false

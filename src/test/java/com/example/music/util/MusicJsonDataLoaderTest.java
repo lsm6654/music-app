@@ -22,8 +22,10 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import static com.example.music.fixture.JsonDataLoaderTestFixture.*;
+import com.example.music.fixture.JsonDataLoaderTestFixture;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
+import org.springframework.core.io.ByteArrayResource;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("JsonDataLoader 테스트")
@@ -49,7 +51,7 @@ class MusicJsonDataLoaderTest {
     @DisplayName("단일 레코드를 정상적으로 처리한다")
     void testLoadDataInBatches_SingleRecord() throws IOException {
       // Given
-      Resource mockResource = createMockResource(TEST_JSON_DATA);
+      Resource mockResource = JsonDataLoaderTestFixture.VALID_RESOURCE;
       when(resourceLoader.getResource(DEFAULT_RESOURCE_PATH)).thenReturn(mockResource);
 
       // When
@@ -67,8 +69,13 @@ class MusicJsonDataLoaderTest {
     @DisplayName("여러 아티스트가 있는 노래를 정상적으로 처리한다")
     void testLoadDataInBatches_MultipleArtists() throws IOException {
       // Given
-      String multiArtistData = createMultiArtistData();
-      Resource mockResource = createMockResource(multiArtistData);
+      String multiArtistData = JsonDataLoaderTestFixture.VALID_JSON_RECORD.replace("\"!!!\"", "\"Artist1, Artist2, Artist3\"");
+      Resource mockResource = new ByteArrayResource(multiArtistData.getBytes()) {
+        @Override
+        public java.io.InputStream getInputStream() {
+          return new java.io.ByteArrayInputStream(getByteArray());
+        }
+      };
       when(resourceLoader.getResource(DEFAULT_RESOURCE_PATH)).thenReturn(mockResource);
 
       // When
@@ -86,8 +93,12 @@ class MusicJsonDataLoaderTest {
     @DisplayName("null 값이 포함된 데이터를 정상적으로 처리한다")
     void testLoadDataInBatches_NullValues() throws IOException {
       // Given
-      String dataWithNulls = createDataWithNullValues();
-      Resource mockResource = createMockResource(dataWithNulls);
+      Resource mockResource = new ByteArrayResource(JsonDataLoaderTestFixture.JSON_WITH_NULL_VALUES.getBytes()) {
+        @Override
+        public java.io.InputStream getInputStream() {
+          return new java.io.ByteArrayInputStream(getByteArray());
+        }
+      };
       when(resourceLoader.getResource(DEFAULT_RESOURCE_PATH)).thenReturn(mockResource);
 
       // When
@@ -110,8 +121,7 @@ class MusicJsonDataLoaderTest {
     @DisplayName("여러 레코드를 배치 크기에 따라 나누어 처리한다")
     void testLoadDataInBatches_MultipleRecordsWithBatching() throws IOException {
       // Given
-      String multiLineData = createMultiLineData();
-      Resource mockResource = createMockResource(multiLineData);
+      Resource mockResource = JsonDataLoaderTestFixture.MULTI_LINE_RESOURCE;
       when(resourceLoader.getResource(DEFAULT_RESOURCE_PATH)).thenReturn(mockResource);
 
       // When
@@ -137,17 +147,32 @@ class MusicJsonDataLoaderTest {
     @DisplayName("빈 줄이 포함된 데이터를 처리할 때 빈 줄을 무시한다")
     void testLoadDataInBatches_EmptyLines() throws IOException {
       // Given
-      String dataWithEmptyLines = createDataWithEmptyLines();
-      Resource mockResource = createMockResource(dataWithEmptyLines);
+      Resource mockResource = new ByteArrayResource(JsonDataLoaderTestFixture.RECORDS_WITH_EMPTY_LINES.getBytes()) {
+        @Override
+        public java.io.InputStream getInputStream() {
+          return new java.io.ByteArrayInputStream(getByteArray());
+        }
+      };
       when(resourceLoader.getResource(DEFAULT_RESOURCE_PATH)).thenReturn(mockResource);
 
       // When
       Flux<MusicJsonDataLoader.MusicData> result = musicJsonDataLoader.loadDataInBatches(DEFAULT_RESOURCE_PATH, DEFAULT_BATCH_SIZE);
 
       // Then
+      // RECORDS_WITH_EMPTY_LINES는 2개의 유효한 레코드를 포함하므로
+      // 빈 줄은 무시되고 2개의 레코드가 모두 처리되어야 함
       StepVerifier.create(result)
         .assertNext(musicData -> {
-          assertSingleDataPresence(musicData);
+          // 첫 번째 레코드와 두 번째 레코드가 함께 배치로 처리됨
+          assertThat(musicData.getArtists()).hasSize(2);
+          assertThat(musicData.getAlbums()).hasSize(2);
+          assertThat(musicData.getSongs()).hasSize(2);
+          assertThat(musicData.getAlbumArtistMappings()).hasSize(2);
+          
+          // 첫 번째 아티스트 확인
+          assertThat(musicData.getArtists().get(0).getArtistName()).isEqualTo(JsonDataLoaderTestFixture.ARTIST_NAME_SINGLE);
+          // 두 번째 아티스트 확인
+          assertThat(musicData.getArtists().get(1).getArtistName()).isEqualTo("Artist2");
         })
         .verifyComplete();
     }
@@ -156,18 +181,32 @@ class MusicJsonDataLoaderTest {
     @DisplayName("유효하지 않은 JSON 라인을 무시하고 유효한 데이터만 처리한다")
     void testLoadDataInBatches_InvalidJsonLine() throws IOException {
       // Given
-      String invalidData = createDataWithInvalidJson();
-      Resource mockResource = createMockResource(invalidData);
+      Resource mockResource = new ByteArrayResource(JsonDataLoaderTestFixture.RECORDS_WITH_INVALID_LINE.getBytes()) {
+        @Override
+        public java.io.InputStream getInputStream() {
+          return new java.io.ByteArrayInputStream(getByteArray());
+        }
+      };
       when(resourceLoader.getResource(DEFAULT_RESOURCE_PATH)).thenReturn(mockResource);
 
       // When
       Flux<MusicJsonDataLoader.MusicData> result = musicJsonDataLoader.loadDataInBatches(DEFAULT_RESOURCE_PATH, DEFAULT_BATCH_SIZE);
 
       // Then
+      // RECORDS_WITH_INVALID_LINE은 잘못된 줄 + 2개의 유효한 레코드를 포함
+      // 잘못된 줄은 무시되고 2개의 유효한 레코드만 처리되어야 함
       StepVerifier.create(result)
         .assertNext(musicData -> {
-          assertSingleDataPresence(musicData);
-          assertThat(musicData.getArtists().get(0).getArtistName()).isEqualTo(EXPECTED_ARTIST_NAME);
+          // 2개의 유효한 레코드가 배치로 처리됨
+          assertThat(musicData.getArtists()).hasSize(2);
+          assertThat(musicData.getAlbums()).hasSize(2);
+          assertThat(musicData.getSongs()).hasSize(2);
+          assertThat(musicData.getAlbumArtistMappings()).hasSize(2);
+          
+          // 첫 번째 아티스트 확인
+          assertThat(musicData.getArtists().get(0).getArtistName()).isEqualTo(JsonDataLoaderTestFixture.ARTIST_NAME_SINGLE);
+          // 두 번째 아티스트 확인  
+          assertThat(musicData.getArtists().get(1).getArtistName()).isEqualTo("Artist2");
         })
         .verifyComplete();
     }
@@ -177,7 +216,7 @@ class MusicJsonDataLoaderTest {
     void testLoadDataInBatches_ResourceNotFound() throws IOException {
       // Given
       String resourcePath = "classpath:non-existent.json";
-      Resource mockResource = createMockResourceWithError();
+      Resource mockResource = JsonDataLoaderTestFixture.ERROR_RESOURCE;
       when(resourceLoader.getResource(resourcePath)).thenReturn(mockResource);
 
       // When
@@ -195,7 +234,7 @@ class MusicJsonDataLoaderTest {
     // Artists 검증
     assertThat(musicData.getArtists()).hasSize(1);
     Artist artist = musicData.getArtists().get(0);
-    assertThat(artist.getArtistName()).isEqualTo(EXPECTED_ARTIST_NAME);
+    assertThat(artist.getArtistName()).isEqualTo(JsonDataLoaderTestFixture.ARTIST_NAME_SINGLE);
     assertThat(artist.getArtistId()).isEqualTo(1L);
     assertThat(artist.getCreatedAt()).isNotNull();
     assertThat(artist.getUpdatedAt()).isNotNull();
@@ -203,8 +242,8 @@ class MusicJsonDataLoaderTest {
     // Albums 검증
     assertThat(musicData.getAlbums()).hasSize(1);
     Album album = musicData.getAlbums().get(0);
-    assertThat(album.getAlbumName()).isEqualTo(EXPECTED_ALBUM_NAME);
-    assertThat(album.getReleaseDate()).isEqualTo(LocalDate.parse(EXPECTED_RELEASE_DATE));
+    assertThat(album.getAlbumName()).isEqualTo(JsonDataLoaderTestFixture.ALBUM_NAME);
+    assertThat(album.getReleaseDate()).isEqualTo(LocalDate.parse(JsonDataLoaderTestFixture.RELEASE_DATE));
     assertThat(album.getId()).isEqualTo(1L);
     assertThat(album.getCreatedAt()).isNotNull();
     assertThat(album.getUpdatedAt()).isNotNull();
@@ -212,14 +251,14 @@ class MusicJsonDataLoaderTest {
     // Songs 검증
     assertThat(musicData.getSongs()).hasSize(1);
     Song song = musicData.getSongs().get(0);
-    assertThat(song.getSongTitle()).isEqualTo(EXPECTED_SONG_TITLE);
+    assertThat(song.getSongTitle()).isEqualTo(JsonDataLoaderTestFixture.SONG_TITLE);
     assertThat(song.getAlbum()).isEqualTo(album);
     assertThat(song.getDanceability()).isEqualTo(new BigDecimal("71"));
     assertThat(song.getEnergy()).isEqualTo(new BigDecimal("83"));
     assertThat(song.getPositiveness()).isEqualTo(new BigDecimal("87"));
     assertThat(song.getLiveness()).isEqualTo(new BigDecimal("16"));
     assertThat(song.getInstrumentalness()).isEqualTo(new BigDecimal("0"));
-    assertThat(song.getPopularity()).isEqualTo(EXPECTED_POPULARITY);
+    assertThat(song.getPopularity()).isEqualTo(JsonDataLoaderTestFixture.POPULARITY);
     assertThat(song.getId()).isEqualTo(1L);
 
     // Album-Artist Mappings 검증
@@ -262,9 +301,9 @@ class MusicJsonDataLoaderTest {
     assertThat(batch.getSongs()).hasSize(1);
     assertThat(batch.getAlbumArtistMappings()).hasSize(1);
     
-    assertThat(batch.getArtists().get(0).getArtistName()).isEqualTo(EXPECTED_ARTIST_NAME);
-    assertThat(batch.getAlbums().get(0).getAlbumName()).isEqualTo(EXPECTED_ALBUM_NAME);
-    assertThat(batch.getSongs().get(0).getSongTitle()).isEqualTo(EXPECTED_SONG_TITLE);
+    assertThat(batch.getArtists().get(0).getArtistName()).isEqualTo(JsonDataLoaderTestFixture.ARTIST_NAME_SINGLE);
+    assertThat(batch.getAlbums().get(0).getAlbumName()).isEqualTo(JsonDataLoaderTestFixture.ALBUM_NAME);
+    assertThat(batch.getSongs().get(0).getSongTitle()).isEqualTo(JsonDataLoaderTestFixture.SONG_TITLE);
   }
 
   private void assertSecondBatchData(MusicJsonDataLoader.MusicData batch) {
