@@ -38,7 +38,7 @@ public class DataInitializationService {
   private final Map<String, Long> artistIdMap = new ConcurrentHashMap<>();
   private final Map<String, Long> albumIdMap = new ConcurrentHashMap<>();
 
-  private static final String DATA_FILE_PATH = "classpath:data/900k Definitive Spotify Dataset.json";
+  private static final String DATA_FILE_PATH = "classpath:init-data/dataset.json";
   private static final int BATCH_SIZE = 1000;
   private static final int CONCURRENT_SAVES = 10;
 
@@ -47,49 +47,37 @@ public class DataInitializationService {
       initializeBaseData()
         .doOnTerminate(() -> log.info("Data initialization completed."))
         .doOnError(error -> log.error("Data initialization failed.", error))
-        .block();  // 블로킹 호출로 변경하여 초기화 완료 대기
+        .block();  // 초기화 완료 대기
     } catch (Exception e) {
-      log.error("Data initialization failed.", e);
       throw new RuntimeException("Failed to initialize data.", e);
     }
   }
 
   public void loadAggregationData() {
     try {
-      log.info("Starting aggregation data initialization...");
-
       aggregateAlbumData()
         .doOnTerminate(() -> log.info("Aggregation data initialization completed."))
         .doOnError(error -> log.error("Aggregation data initialization failed.", error))
-        .block();  // 블로킹 호출로 집계 완료 대기
+        .block();  // 집계 완료 대기
 
     } catch (Exception e) {
-      log.error("Failed to initialize aggregation data.", e);
       throw new RuntimeException("Failed to initialize aggregation data.", e);
     }
   }
 
   private Mono<Void> initializeBaseData() {
-    return checkDatabaseEmpty()
+    return songRepository.count()
+      .map(count -> count == 0)
+      .defaultIfEmpty(true)
       .flatMap(isEmpty -> {
         if (!isEmpty) {
           log.info("Database already contains data. Skipping initialization.");
           return Mono.empty();
         }
-        return loadAndSaveData();
+        return musicJsonDataLoader.loadDataInBatches(DATA_FILE_PATH, BATCH_SIZE)
+          .flatMap(this::processBatch, CONCURRENT_SAVES)
+          .then();
       });
-  }
-
-  private Mono<Boolean> checkDatabaseEmpty() {
-    return songRepository.count()
-      .map(count -> count == 0)
-      .defaultIfEmpty(true);
-  }
-
-  private Mono<Void> loadAndSaveData() {
-    return musicJsonDataLoader.loadDataInBatches(DATA_FILE_PATH, BATCH_SIZE)
-      .flatMap(this::processBatch, CONCURRENT_SAVES)
-      .then();
   }
 
   private Mono<Void> processBatch(MusicJsonDataLoader.MusicData batch) {
@@ -174,8 +162,6 @@ public class DataInitializationService {
   }
 
   private Mono<Void> aggregateAlbumData() {
-    log.info("Starting album annual aggregation...");
-
     return albumAnnualAggregationRepository.count()
       .flatMap(count -> {
         if (count > 0) {
