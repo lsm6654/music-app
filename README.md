@@ -1,4 +1,10 @@
 # music-app project
+https://github.com/lsm6654/music-app
+
+어플리케이션 실행 명령어:
+```shell
+./gradlew bootRun
+```
 
 ## Prerequisites
 - Java 21
