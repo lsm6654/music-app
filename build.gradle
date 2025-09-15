@@ -17,6 +17,9 @@ configurations {
     compileOnly {
         extendsFrom annotationProcessor
     }
+    all {
+        exclude group: 'org.slf4j', module: 'slf4j-simple'
+    }
 }
 
 repositories {
@@ -30,6 +33,16 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     // Spring Data R2DBC
     implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
+    // Spring Data Redis Reactive
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
+    // Spring Cache
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
+    // Caffeine Cache
+    implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+    // Embedded Redis for development
+    implementation 'com.github.codemonstur:embedded-redis:1.4.3'
+    // ULID library for unique ID generation
+    implementation 'com.github.f4b6a3:ulid-creator:5.2.2'
 
     // Database drivers (you can choose the one you need)
     runtimeOnly 'com.h2database:h2'

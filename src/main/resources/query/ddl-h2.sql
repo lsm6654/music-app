@@ -48,15 +48,14 @@ CREATE TABLE IF NOT EXISTS songs
 
 CREATE INDEX IF NOT EXISTS idx_song_album ON songs(album_id);
 
-CREATE TABLE IF NOT EXISTS album_annual_aggregations
-(
-    release_year SMALLINT NOT NULL,
-    artist_id    BIGINT   NOT NULL,
-    album_count  INT      NOT NULL,
-    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (release_year, artist_id)
+CREATE TABLE IF NOT EXISTS event_logs (
+    ulid VARCHAR(26) PRIMARY KEY,
+    type VARCHAR(20) NOT NULL DEFAULT 'LIKE',
+    user_id VARCHAR(50),
+    song_id VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL
 );
-
-CREATE INDEX IF NOT EXISTS idx_aggregation_artist ON album_annual_aggregations(artist_id);
-CREATE INDEX IF NOT EXISTS idx_aggregation_year ON album_annual_aggregations(release_year);
+CREATE INDEX IF NOT EXISTS idx_event_logs_song_id ON event_logs(song_id);
+CREATE INDEX IF NOT EXISTS idx_event_logs_created_at ON event_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_event_logs_user_song ON event_logs(user_id, song_id);
